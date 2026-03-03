@@ -37,4 +37,35 @@
     <flow id="f_7" begin="0.00" end="3600.00" number="1800" color="cyan" from="E3" to="-E2"/>
     <flow id="f_8" begin="0.00" number="1800" perHour="1800.00" from="E3" to="-E1"/>
     <flow id="f_9" begin="0.00" number="1800" period="2" color="red" from="E3" to="-E4"/>
+    <vType id="car"
+       accel="2.6"
+       decel="4.5"
+       sigma="0.5"
+       length="5"
+       maxSpeed="25"
+       color="1,0,0"/>
+
+    <vType id="bus"
+       accel="1.2"
+       decel="4.0"
+       sigma="0.5"
+       length="10"
+       maxSpeed="20"
+       color="0,1,0"/>
+
+    <vType id="truck"
+       accel="1.0"
+       decel="3.5"
+       sigma="0.5"
+       length="8"
+       maxSpeed="18"
+       color="0,0,1"/>
+
+    <vType id="bike"
+       accel="3.0"
+       decel="5.0"
+       sigma="0.5"
+       length="2"
+       maxSpeed="30"
+       color="1,1,0"/>
 </routes>

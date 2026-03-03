@@ -33,8 +33,10 @@ def add_vehicle_to_lane(lane_id, route_id):
         )
         traci.vehicle.setLaneChangeMode(vehicle_id, 0)
         traci.vehicle.setColor(vehicle_id, vehicle_colors[vehicle_type])
+        
     except traci.TraCIException as e:
         print(f"ERROR adding vehicle {vehicle_id}: {e}")
+        print("Loaded vehicle types:", traci.vehicletype.getIDList())
 
 
 def fill_lane(lane_id, route_id, vehicle_count):

@@ -8,4 +8,35 @@
     <route id="r_0" edges="E1 -E4"/>
     <!-- Vehicles, persons and containers (sorted by depart) -->
     <trip id="t_0" type="DEFAULT_CONTAINERTYPE" depart="0.00" from="E1" to="-E4"/>
+    <vType id="car"
+       accel="2.6"
+       decel="4.5"
+       sigma="0.5"
+       length="5"
+       maxSpeed="25"
+       color="1,0,0"/>
+
+    <vType id="bus"
+       accel="1.2"
+       decel="4.0"
+       sigma="0.5"
+       length="10"
+       maxSpeed="20"
+       color="0,1,0"/>
+
+    <vType id="truck"
+       accel="1.0"
+       decel="3.5"
+       sigma="0.5"
+       length="8"
+       maxSpeed="18"
+       color="0,0,1"/>
+
+    <vType id="bike"
+       accel="3.0"
+       decel="5.0"
+       sigma="0.5"
+       length="2"
+       maxSpeed="30"
+       color="1,1,0"/>
 </routes>
