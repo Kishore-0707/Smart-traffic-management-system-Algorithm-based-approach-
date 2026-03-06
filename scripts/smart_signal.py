@@ -3,7 +3,8 @@ import os
 import sumolib
 import traci
 
-from generate import count_vehicles_per_lane, generate_user_defined_vehicles
+from generate import count_vehicles_per_lane, adaptive_vehicle_generation
+from algorthim import run_adaptive_signal
 
 print("SMART SIGNAL SCRIPT STARTED")
 
@@ -51,7 +52,12 @@ lane_to_routes = {
     "E4_1": ["route_E4_to_mE2"],
     "E4_2": ["route_E4_to_mE1"],
 }
-
+traffic_scenario = {
+    "E1": 20,
+    "E2": 5,
+    "E3": 5,
+    "E4": 5,
+}
 
 def ensure_routes_created():
     existing = set(traci.route.getIDList())
@@ -85,9 +91,12 @@ try:
         traci.simulationStep()
         ensure_routes_created()
 
-        if step % INJECT_EVERY_STEPS == 0:
-            generate_user_defined_vehicles(build_continuous_requests())
-
+        adaptive_vehicle_generation(
+            step,
+            lane_ids,
+            lane_to_routes,
+            traffic_scenario
+        )
         lane_count_history = count_vehicles_per_lane(
             lane_ids=lane_ids,
             current_step=step,
@@ -95,11 +104,7 @@ try:
             history=lane_count_history,
         )
 
-        e1 = sum(traci.lane.getLastStepVehicleNumber(l) for l in ("E1_0", "E1_1", "E1_2"))
-        e2 = sum(traci.lane.getLastStepVehicleNumber(l) for l in ("E2_0", "E2_1", "E2_2"))
-        e3 = sum(traci.lane.getLastStepVehicleNumber(l) for l in ("E3_0", "E3_1", "E3_2"))
-        e4 = sum(traci.lane.getLastStepVehicleNumber(l) for l in ("E4_0", "E4_1", "E4_2"))
-        print(f"step={step} | E1={e1} E2={e2} E3={e3} E4={e4} | samples={len(lane_count_history)}")
+        run_adaptive_signal("J9")
 
         step += 1
 except KeyboardInterrupt:

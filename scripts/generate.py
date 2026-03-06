@@ -1,17 +1,25 @@
 import random
 from itertools import count
-
 import traci
 
-_VEHICLE_SEQ = count()
+# -------------------------------------------------
+# VEHICLE ID GENERATOR
+# -------------------------------------------------
 
+_VEHICLE_SEQ = count()
 
 def _next_vehicle_id(lane_id):
     return f"veh_{lane_id}_{next(_VEHICLE_SEQ)}"
 
 
+# -------------------------------------------------
+# ADD VEHICLE TO LANE
+# -------------------------------------------------
+
 def add_vehicle_to_lane(lane_id, route_id):
+
     vehicle_types = ["car", "bus", "bike", "truck"]
+
     vehicle_colors = {
         "car": (0, 0, 255),
         "bus": (255, 0, 0),
@@ -20,10 +28,13 @@ def add_vehicle_to_lane(lane_id, route_id):
     }
 
     vehicle_id = _next_vehicle_id(lane_id)
+
     vehicle_type = random.choice(vehicle_types)
+
     lane_index = lane_id.split("_")[1]
 
     try:
+
         traci.vehicle.add(
             vehID=vehicle_id,
             routeID=route_id,
@@ -31,80 +42,147 @@ def add_vehicle_to_lane(lane_id, route_id):
             departLane=lane_index,
             departSpeed="max",
         )
+
+        # prevent lane changes
         traci.vehicle.setLaneChangeMode(vehicle_id, 0)
+
+        # assign color
         traci.vehicle.setColor(vehicle_id, vehicle_colors[vehicle_type])
-        
+
     except traci.TraCIException as e:
         print(f"ERROR adding vehicle {vehicle_id}: {e}")
-        print("Loaded vehicle types:", traci.vehicletype.getIDList())
 
 
-def fill_lane(lane_id, route_id, vehicle_count):
-    for _ in range(vehicle_count):
-        add_vehicle_to_lane(lane_id, route_id)
-
+# -------------------------------------------------
+# GENERATE USER REQUEST VEHICLES
+# -------------------------------------------------
 
 def generate_user_defined_vehicles(vehicle_requests):
-    valid_types = {"car", "bus", "bike", "truck"}
-    color_by_type = {
-        "car": (0, 0, 255),
-        "bus": (255, 0, 0),
-        "bike": (0, 255, 0),
-        "truck": (255, 165, 0),
-    }
 
     for request in vehicle_requests:
+
         lane_id = request["lane_id"]
         route_id = request["route_id"]
-        count = int(request.get("count", 1))
-        vehicle_type = request.get("vehicle_type")
+        count_value = int(request.get("count", 1))
 
-        if vehicle_type is not None and vehicle_type not in valid_types:
-            raise ValueError(
-                f"Invalid vehicle_type '{vehicle_type}' for lane {lane_id}. "
-                f"Allowed values: {sorted(valid_types)}"
-            )
+        for _ in range(max(0, count_value)):
+            add_vehicle_to_lane(lane_id, route_id)
 
-        for _ in range(max(0, count)):
-            if vehicle_type is None:
-                add_vehicle_to_lane(lane_id, route_id)
-                continue
 
-            vehicle_id = _next_vehicle_id(lane_id)
-            lane_index = lane_id.split("_")[1]
+# -------------------------------------------------
+# SCENARIO BASED TRAFFIC
+# -------------------------------------------------
 
-            try:
-                traci.vehicle.add(
-                    vehID=vehicle_id,
-                    routeID=route_id,
-                    typeID=vehicle_type,
-                    departLane=lane_index,
-                    departSpeed="max",
-                )
-                traci.vehicle.setLaneChangeMode(vehicle_id, 0)
-                traci.vehicle.setColor(vehicle_id, color_by_type[vehicle_type])
-            except traci.TraCIException as e:
-                print(f"ERROR adding vehicle {vehicle_id}: {e}")
+def generate_scenario_traffic(lane_to_routes, scenario):
 
+    requests = []
+
+    for lane_id, routes in lane_to_routes.items():
+
+        edge = lane_id.split("_")[0]
+
+        vehicle_count = scenario.get(edge, 0)
+
+        route_id = random.choice(routes)
+
+        requests.append(
+            {
+                "lane_id": lane_id,
+                "route_id": route_id,
+                "count": vehicle_count,
+            }
+        )
+
+    generate_user_defined_vehicles(requests)
+
+
+# -------------------------------------------------
+# COUNT VEHICLES PER LANE
+# -------------------------------------------------
 
 def count_vehicles_per_lane(lane_ids, current_step, interval=10, history=None):
+
     if history is None:
         history = []
-
-    if interval <= 0:
-        raise ValueError("interval must be > 0")
 
     if current_step % interval != 0:
         return history
 
     for lane_id in lane_ids:
+
         try:
-            count_value = traci.lane.getLastStepVehicleNumber(lane_id)
+            vehicle_count = traci.lane.getLastStepVehicleNumber(lane_id)
         except traci.TraCIException:
-            count_value = 0
+            vehicle_count = 0
 
         history.append(
-            {"step": current_step, "lane_id": lane_id, "vehicle_count": count_value}
+            {
+                "step": current_step,
+                "lane_id": lane_id,
+                "vehicle_count": vehicle_count,
+            }
         )
 
     return history
+
+
+# -------------------------------------------------
+# TOTAL VEHICLE COUNT (FOR ADAPTIVE GENERATION)
+# -------------------------------------------------
+
+def get_total_vehicle_count(lane_ids):
+
+    total = 0
+
+    for lane in lane_ids:
+        try:
+            total += traci.lane.getLastStepVehicleNumber(lane)
+        except traci.TraCIException:
+            pass
+
+    return total
+
+
+# -------------------------------------------------
+# ADAPTIVE TRAFFIC GENERATION RATE
+# -------------------------------------------------
+
+def adaptive_vehicle_generation(step, lane_ids, lane_to_routes, scenario):
+
+    total_vehicles = sum(
+        traci.lane.getLastStepVehicleNumber(l) for l in lane_ids
+    )
+
+    # Lower generation pressure as congestion grows.
+    if total_vehicles < 20:
+        injection_rate = 3
+        batch_size = 3
+    elif total_vehicles < 40:
+        injection_rate = 5
+        batch_size = 2
+    elif total_vehicles < 70:
+        injection_rate = 8
+        batch_size = 1
+    else:
+        injection_rate = 12
+        batch_size = 0
+
+    if batch_size == 0 or step % injection_rate != 0:
+        return
+
+    available_lanes = list(lane_to_routes.keys())
+    chosen_lanes = random.sample(
+        available_lanes,
+        k=min(batch_size, len(available_lanes))
+    )
+
+    requests = []
+    for lane_id in chosen_lanes:
+        route_id = lane_to_routes[lane_id][0]
+        requests.append({
+            "lane_id": lane_id,
+            "route_id": route_id,
+            "count": 1
+        })
+
+    generate_user_defined_vehicles(requests)
