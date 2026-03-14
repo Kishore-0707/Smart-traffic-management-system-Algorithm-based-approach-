@@ -1,21 +1,13 @@
 import traci
 
-
 def run_adaptive_signal(
     traffic_light_id,
     threshold=20,
     base_green=10,
     factor=0.5,
-    max_green=40
+    max_green=40,
+    balance_margin=10
 ):
-
-    # Two green phases in this intersection
-    edge_to_phase = {
-        "E1": 0,
-        "E2": 2,
-        "E3": 0,
-        "E4": 2,
-    }
 
     edges = {
         "E1": ["E1_0", "E1_1", "E1_2"],
@@ -26,9 +18,9 @@ def run_adaptive_signal(
 
     lane_data = {}
 
-    # -------------------------------------
-    # Step 1: Read sensor data
-    # -------------------------------------
+    # ---------------------------
+    # Step 1: Read vehicle counts
+    # ---------------------------
 
     for edge, lanes in edges.items():
 
@@ -42,15 +34,17 @@ def run_adaptive_signal(
 
     counts = list(lane_data.values())
 
-    # -------------------------------------
-    # Step 2: Check congestion threshold
-    # -------------------------------------
+    phase0 = lane_data["E2"] + lane_data["E4"]
+    phase2 = lane_data["E1"] + lane_data["E3"]
+
+    # ---------------------------
+    # NORMAL TRAFFIC
+    # ---------------------------
 
     if all(c < threshold for c in counts):
 
         print("Mode: NORMAL TRAFFIC")
 
-        # Sequential signal rotation
         for phase in [0, 2]:
 
             traci.trafficlight.setPhase(traffic_light_id, phase)
@@ -58,17 +52,32 @@ def run_adaptive_signal(
             for _ in range(base_green):
                 traci.simulationStep()
 
-    # CONGESTION MODE
+    # ---------------------------
+    # BALANCED TRAFFIC
+    # ---------------------------
+
+    elif abs(phase0 - phase2) < balance_margin:
+
+        print("Mode: BALANCED TRAFFIC")
+
+        for phase in [0, 2]:
+
+            traci.trafficlight.setPhase(traffic_light_id, phase)
+
+            for _ in range(base_green):
+                traci.simulationStep()
+
+    # ---------------------------
+    # CONGESTION TRAFFIC
+    # ---------------------------
+
     else:
 
-        # -------------------------------------
-        # CONGESTION MODE
-        # -------------------------------------
         print("Mode: CONGESTION TRAFFIC")
 
         phase_load = {
-            0: lane_data["E2"] + lane_data["E4"],
-            2: lane_data["E1"] + lane_data["E3"]
+            0: phase0,
+            2: phase2
         }
 
         selected_phase = max(phase_load, key=phase_load.get)

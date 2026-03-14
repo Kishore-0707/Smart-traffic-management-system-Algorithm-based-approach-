@@ -165,12 +165,15 @@ def adaptive_vehicle_generation(step, lane_ids, lane_to_routes, scenario):
         batch_size = 1
     else:
         injection_rate = 12
-        batch_size = 0
+        batch_size = 1
 
     if batch_size == 0 or step % injection_rate != 0:
         return
 
     available_lanes = list(lane_to_routes.keys())
+    
+    print(f"step={step} vehicles={total_vehicles} rate={injection_rate} batch={batch_size}")  
+      
     chosen_lanes = random.sample(
         available_lanes,
         k=min(batch_size, len(available_lanes))
