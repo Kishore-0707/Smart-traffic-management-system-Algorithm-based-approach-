@@ -1,4 +1,6 @@
 import traci
+from calculate import calculate_vehicle_count
+from apiCalling import send_to_server
 
 def run_adaptive_signal(
     traffic_light_id,
@@ -8,6 +10,7 @@ def run_adaptive_signal(
     max_green=40,
     balance_margin=10
 ):
+    mode = ""
 
     edges = {
         "E1": ["E1_0", "E1_1", "E1_2"],
@@ -15,24 +18,19 @@ def run_adaptive_signal(
         "E3": ["E3_0", "E3_1", "E3_2"],
         "E4": ["E4_0", "E4_1", "E4_2"],
     }
-
-    lane_data = {}
-
     # ---------------------------
     # Step 1: Read vehicle counts
     # ---------------------------
-
-    for edge, lanes in edges.items():
-
-        vehicle_count = sum(
-            traci.lane.getLastStepVehicleNumber(l) for l in lanes
-        )
-
-        lane_data[edge] = vehicle_count
-
+    
+    lane_data = calculate_vehicle_count(edges)
+    
     print("Lane Data:", lane_data)
 
+    # lane data -> Flask api 
+    
     counts = list(lane_data.values())
+    
+    priority_lane = None
 
     phase0 = lane_data["E2"] + lane_data["E4"]
     phase2 = lane_data["E1"] + lane_data["E3"]
@@ -44,6 +42,10 @@ def run_adaptive_signal(
     if all(c < threshold for c in counts):
 
         print("Mode: NORMAL TRAFFIC")
+        mode = "NORMAL TRAFFIC"
+        priority_lane = "None"
+        
+        # traffic_mode_global = "NORMAL TRAFFIC"
 
         for phase in [0, 2]:
 
@@ -59,6 +61,9 @@ def run_adaptive_signal(
     elif abs(phase0 - phase2) < balance_margin:
 
         print("Mode: BALANCED TRAFFIC")
+        
+        mode = "BALANCED TRAFFIC"
+        priority_lane = "None"
 
         for phase in [0, 2]:
 
@@ -74,6 +79,9 @@ def run_adaptive_signal(
     else:
 
         print("Mode: CONGESTION TRAFFIC")
+        mode = "CONGESTION TRAFFIC"
+        
+        # traffic_mode_global = "CONGESTION TRAFFIC"
 
         phase_load = {
             0: phase0,
@@ -81,6 +89,11 @@ def run_adaptive_signal(
         }
 
         selected_phase = max(phase_load, key=phase_load.get)
+        
+        if selected_phase == 0:
+            priority_lane = "E2_E4"
+        else:
+            priority_lane = "E1_E3"
 
         vehicle_count = phase_load[selected_phase]
 
@@ -95,3 +108,6 @@ def run_adaptive_signal(
 
         for _ in range(green_time):
             traci.simulationStep()
+    
+    # 🚀 Send to Flask server
+    send_to_server(lane_data, mode, priority_lane)
