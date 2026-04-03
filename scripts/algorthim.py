@@ -2,6 +2,10 @@ import traci
 from calculate import calculate_vehicle_count
 from apiCalling import send_to_server
 
+
+# Change the name of the road like north east west south
+# Change the color of the vehicle to a particular lane like north entering vehicles should be in single color 
+
 def run_adaptive_signal(
     traffic_light_id,
     threshold=20,

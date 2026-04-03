@@ -15,26 +15,24 @@ def _next_vehicle_id(lane_id):
 # -------------------------------------------------
 # ADD VEHICLE TO LANE
 # -------------------------------------------------
-
 def add_vehicle_to_lane(lane_id, route_id):
 
     vehicle_types = ["car", "bus", "bike", "truck"]
 
-    vehicle_colors = {
-        "car": (0, 0, 255),
-        "bus": (255, 0, 0),
-        "bike": (0, 255, 0),
-        "truck": (255, 165, 0),
+    # ✅ =Destination-based colors
+    destination_colors = {
+        "E1": (255, 165, 0),   # Orange
+        "E2": (0, 0, 255),     # Blue
+        "E3": (255, 0, 0),     # Red
+        "E4": (255, 192, 203), # Pink
     }
 
     vehicle_id = _next_vehicle_id(lane_id)
-
     vehicle_type = random.choice(vehicle_types)
 
     lane_index = lane_id.split("_")[1]
 
     try:
-
         traci.vehicle.add(
             vehID=vehicle_id,
             routeID=route_id,
@@ -46,12 +44,17 @@ def add_vehicle_to_lane(lane_id, route_id):
         # prevent lane changes
         traci.vehicle.setLaneChangeMode(vehicle_id, 0)
 
-        # assign color
-        traci.vehicle.setColor(vehicle_id, vehicle_colors[vehicle_type])
+        edges = traci.route.getEdges(route_id)
+        destination = edges[-1].replace("-", "")  # "-E4" → "E4"
+
+        color = destination_colors.get(destination, (255, 255, 255))
+        traci.vehicle.setColor(vehicle_id, color)
+        traci.vehicle.setParameter(vehicle_id, "color", f"{color[0]},{color[1]},{color[2]}")
 
     except traci.TraCIException as e:
         print(f"ERROR adding vehicle {vehicle_id}: {e}")
-
+        
+# check the vehicle.rou.xml
 
 # -------------------------------------------------
 # GENERATE USER REQUEST VEHICLES
