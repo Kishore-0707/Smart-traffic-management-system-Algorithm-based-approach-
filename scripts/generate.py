@@ -54,7 +54,7 @@ def add_vehicle_to_lane(lane_id, route_id):
     except traci.TraCIException as e:
         print(f"ERROR adding vehicle {vehicle_id}: {e}")
         
-# check the vehicle.rou.xml
+# check the vehicle.rou.xml done
 
 # -------------------------------------------------
 # GENERATE USER REQUEST VEHICLES

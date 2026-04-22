@@ -1,5 +1,6 @@
 from flask import Flask, request, jsonify
 from flask_cors import CORS
+from datetime import datetime, timezone
 
 app = Flask(__name__)
 CORS(app)
@@ -20,6 +21,7 @@ def traffic():
     if request.method == "POST":
 
         traffic_data = request.json
+        traffic_data["server_received_at"] = datetime.now(timezone.utc).isoformat()
 
         lane_data = traffic_data.get("lane_data")
         mode = traffic_data.get("mode")

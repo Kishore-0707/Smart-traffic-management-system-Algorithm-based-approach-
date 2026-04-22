@@ -1,47 +1,78 @@
-import React, {useEffect, useState} from "react";
+import React, { useEffect, useState } from "react";
 import IntersectionView from "./components/IntersectionView";
 import LaneBarChart from "./components/LaneBarChart";
+import SignalModeCard from "./components/SignalModeCard";
 import { getTrafficData } from "./api";
+import "./App.css";
 
-function App(){
-
-  const [trafficData,setTrafficData] = useState({
-    lane_data:{}
+function App() {
+  const [trafficData, setTrafficData] = useState({
+    lane_data: {},
+    mode: "",
+    priority_lane: "",
+    simulation_time: null,
+    server_received_at: ""
   });
 
-  useEffect(()=>{
+  useEffect(() => {
+    let isMounted = true;
+    let timeoutId;
 
-    const interval = setInterval(async ()=>{
+    const loadTrafficData = async () => {
+      try {
+        const data = await getTrafficData();
 
-      const data = await getTrafficData();
-      setTrafficData(data);
+        if (isMounted) {
+          setTrafficData((previous) => ({
+            ...previous,
+            ...data,
+            lane_data: data?.lane_data || {}
+          }));
+        }
+      } catch (error) {
+        console.error("Failed to fetch traffic data", error);
+      } finally {
+        if (isMounted) {
+          timeoutId = setTimeout(loadTrafficData, 400);
+        }
+      }
+    };
 
-    },2000);
+    loadTrafficData();
 
-    return ()=>clearInterval(interval);
+    return () => {
+      isMounted = false;
+      clearTimeout(timeoutId);
+    };
+  }, []);
 
-  },[]);
+  return (
+    <main className="dashboard-shell">
+      <section className="dashboard-hero">
+        <p className="dashboard-eyebrow">Live Junction Monitoring</p>
+        <h1>Smart Traffic Dashboard</h1>
+        <p className="dashboard-subtitle">
+          A clearer view of lane pressure, direction flow, and vehicle load at the intersection.
+        </p>
+      </section>
 
-  return(
+      <SignalModeCard
+        mode={trafficData.mode}
+        priorityLane={trafficData.priority_lane}
+        simulationTime={trafficData.simulation_time}
+        serverReceivedAt={trafficData.server_received_at}
+      />
 
-    <div>
+      <section className="dashboard-grid">
+        <div className="dashboard-panel">
+          <IntersectionView laneData={trafficData.lane_data} />
+        </div>
 
-      <h1 style={{textAlign:"center"}}>Smart Traffic Dashboard</h1>
-
-      <IntersectionView laneData={trafficData.lane_data}/>
-
-      <div style={{
-        position:"fixed",
-        bottom:"20px",
-        right:"20px"
-      }}>
-
-        <LaneBarChart laneData={trafficData.lane_data}/>
-
-      </div>
-
-    </div>
-
+        <div className="dashboard-panel dashboard-panel-chart">
+          <LaneBarChart laneData={trafficData.lane_data} />
+        </div>
+      </section>
+    </main>
   );
 }
 
